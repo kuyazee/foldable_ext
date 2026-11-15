@@ -1,6 +1,6 @@
 name: foldable_ext
-description: "Makes an Android foldable report the iPhone Duo fold division through the foldable package API, so iPhone Duo layouts can be built and debugged on a Galaxy Z Fold or a foldable emulator."
-version: 0.1.0
+description: "Renders an app on an Android foldable as on an iPhone Duo: window size, safe area and fold division. For building and debugging iPhone Duo layouts on a Galaxy Z Fold."
+version: 0.2.0
 repository: https://github.com/kuyazee/foldable_ext
 issue_tracker: https://github.com/kuyazee/foldable_ext/issues
 

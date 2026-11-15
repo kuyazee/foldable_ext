@@ -1,3 +1,39 @@
+## 0.2.0
+
+Device emulation: with division mode on, an app under `FoldDivisionScope` on an Android foldable
+renders as it does on an iPhone Duo.
+
+- `EmulatedDevice` and `EmulatedDeviceState`, a device profile with one set of metrics per
+  window: size, safe area, fold axis and centre, occlusions. `EmulatedDevice.iphoneDuo` is built
+  in. Several of its numbers are unverified against hardware, and every number is a field.
+- `FoldDivisionConfig.device` (default `EmulatedDevice.iphoneDuo`) and
+  `FoldDivisionConfig.matchWindowSize` (default true). `copyWith` takes `clearDevice`.
+- `FoldDivisionScope` lays its child out at the window size of the device, scaled to fit the
+  real safe area over black, with hit testing through the scale. `MediaQuery` under it reports
+  the emulated size, safe area, pixel ratio, keyboard inset and display features. With
+  `matchWindowSize` off the window keeps its real size and takes the emulated safe area.
+- `DuoMediaQuery`, `FoldDivision.divisionOf`, `marginsOf`, `keepClearRectOf` and the overlay
+  work in the coordinates of the emulated window. The division sits on the fold of the profile
+  and the occlusions of the profile are `occlusion` regions.
+- `FoldDivision.isEmulatingDevice`, `emulatedDeviceOf`, `emulationOf` and `windowRectOf`.
+- `selectEmulatedWindow`, `emulateDeviceData`, `placeEmulatedWindow`, `emulatedViewInsets` and
+  `mergeSafeArea`, the pure functions behind the scope.
+- `FoldDivisionOverlay` draws the occlusions and the safe area edges of the emulated device,
+  with `occlusionColor` and `safeAreaColor`.
+- The example app has a switch for `matchWindowSize` and shows the emulated window.
+
+Changed:
+
+- With the default config, a `FoldDivisionScope` on an Android foldable in a debug build now
+  emulates the iPhone Duo window. Set `device` to null (`copyWith(clearDevice: true)`) for the
+  0.1.0 behaviour: the real window with the division on the hinge.
+
+Fixed:
+
+- Display feature bounds are read as logical pixels, which is what the engine reports. They
+  were divided by the device pixel ratio a second time, which put the division at a fraction of
+  the real fold position on a device.
+
 ## 0.1.0
 
 First release.
