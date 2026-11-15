@@ -350,7 +350,9 @@ class FoldDivisionAndroid extends FoldablePlatform with WidgetsBindingObserver {
     }
     final double ratio = view.devicePixelRatio > 0 ? view.devicePixelRatio : 1;
     return emulateDivision(
-      logicalFeatures: logicalDisplayFeatures(view.displayFeatures, ratio),
+      // The engine divides display feature bounds by the pixel ratio before
+      // it hands them to Dart, so they are in logical pixels already.
+      logicalFeatures: view.displayFeatures,
       viewSize: view.physicalSize / ratio,
       hingeAngle: _angle,
       hasHingeSensor: _hasHingeSensor,

@@ -111,13 +111,14 @@ void main() {
       expect(data.status, HingeStatus.partiallyOpen);
     });
 
-    test('a cutout becomes an occlusion in logical pixels', () async {
+    test('a cutout becomes an occlusion with the bounds the engine reports',
+        () async {
       showInnerDisplay(DisplayFeatureState.postureFlat, withCutout: true);
       final FoldableData data = await platform.getSnapshot();
       final ReservedRegion occlusion = data.regions.last;
       expect(occlusion.kind, ReservedRegionKind.occlusion);
-      expect(occlusion.bounds.left, closeTo(1600 / kFoldPixelRatio, 1e-9));
-      expect(occlusion.bounds.width, closeTo(80 / kFoldPixelRatio, 1e-9));
+      // The engine reports logical pixels. They are not divided again.
+      expect(occlusion.bounds, kEngineCutout.bounds);
     });
 
     test('the cover display of a device with a hinge is closed', () async {

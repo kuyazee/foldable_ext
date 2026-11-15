@@ -70,8 +70,10 @@ SizeClass sizeClassForHeight(double height) {
 
 /// [features] with their bounds divided by [devicePixelRatio].
 ///
-/// `FlutterView.displayFeatures` holds physical pixels. Everything else in
-/// this package works in logical pixels.
+/// For a feature list that holds physical pixels, such as one read from a
+/// platform channel. `FlutterView.displayFeatures` and
+/// `MediaQuery.displayFeatures` need no conversion: the engine reports them
+/// in logical pixels.
 List<DisplayFeature> logicalDisplayFeatures(
   Iterable<DisplayFeature> features,
   double devicePixelRatio,
@@ -97,7 +99,7 @@ List<DisplayFeature> logicalDisplayFeatures(
 /// A pure function: the same inputs give the same snapshot.
 ///
 /// - [logicalFeatures]: the window's display features, bounds in logical
-///   pixels (see [logicalDisplayFeatures]).
+///   pixels, as `FlutterView.displayFeatures` holds them.
 /// - [viewSize]: the window size in logical pixels.
 /// - [hingeAngle]: the last hinge sensor reading in degrees (0 closed, 180
 ///   flat), or null.

@@ -8,22 +8,30 @@ import 'package:foldable_ext/foldable_ext.dart';
 /// is 673.5 x 841.1 logical pixels, with a zero-width fold down the middle.
 const Size kFoldPhysicalSize = Size(1768, 2208);
 const double kFoldPixelRatio = 2.625;
-const Rect kFoldPhysicalBounds = Rect.fromLTRB(884, 0, 884, 2208);
 
 /// The fold centre line in logical pixels.
 const double kFoldCentre = 884 / kFoldPixelRatio;
 
+/// The fold as the engine reports it: bounds in logical pixels.
+const Rect kFoldBounds = Rect.fromLTRB(
+  kFoldCentre,
+  0,
+  kFoldCentre,
+  2208 / kFoldPixelRatio,
+);
+
 /// The Fold cover display: 904 x 2316 physical pixels, no fold.
 const Size kCoverPhysicalSize = Size(904, 2316);
 
-DisplayFeature physicalFold(DisplayFeatureState state) => DisplayFeature(
-      bounds: kFoldPhysicalBounds,
+DisplayFeature engineFold(DisplayFeatureState state) => DisplayFeature(
+      bounds: kFoldBounds,
       type: DisplayFeatureType.fold,
       state: state,
     );
 
-const DisplayFeature kPhysicalCutout = DisplayFeature(
-  bounds: Rect.fromLTWH(1600, 20, 80, 80),
+/// A camera cutout near the top right corner, in logical pixels.
+const DisplayFeature kEngineCutout = DisplayFeature(
+  bounds: Rect.fromLTWH(600, 8, 30, 30),
   type: DisplayFeatureType.cutout,
   state: DisplayFeatureState.unknown,
 );
@@ -41,8 +49,8 @@ void showInnerDisplay(
     ..devicePixelRatio = kFoldPixelRatio
     ..physicalSize = kFoldPhysicalSize
     ..displayFeatures = <DisplayFeature>[
-      physicalFold(state),
-      if (withCutout) kPhysicalCutout,
+      engineFold(state),
+      if (withCutout) kEngineCutout,
     ];
 }
 

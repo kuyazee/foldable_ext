@@ -283,7 +283,7 @@ void main() {
       // Laying flat changes the display feature only, so the event stream
       // has to carry it.
       testView.displayFeatures = <DisplayFeature>[
-        physicalFold(DisplayFeatureState.postureFlat),
+        engineFold(DisplayFeatureState.postureFlat),
       ];
       await tester.pumpAndSettle();
       await tester.pumpAndSettle();
@@ -621,7 +621,7 @@ void main() {
       testView
         ..devicePixelRatio = 2
         ..physicalSize = const Size(800, 1600)
-        ..displayFeatures = const <DisplayFeature>[kPhysicalCutout];
+        ..displayFeatures = const <DisplayFeature>[kEngineCutout];
       final FoldablePlatform previous = FoldablePlatform.instance;
       FoldablePlatform.instance = platform;
       addTearDown(() => FoldablePlatform.instance = previous);
@@ -655,7 +655,7 @@ void main() {
         ..devicePixelRatio = kFoldPixelRatio
         ..physicalSize = kFoldPhysicalSize
         ..displayFeatures = <DisplayFeature>[
-          physicalFold(DisplayFeatureState.postureHalfOpened),
+          engineFold(DisplayFeatureState.postureHalfOpened),
           const DisplayFeature(
             bounds: Rect.fromLTWH(0, 0, 100, 100),
             type: DisplayFeatureType.unknown,
