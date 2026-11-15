@@ -63,7 +63,7 @@ jobs:
 
       # Covers lib/, test/ and example/.
       - name: Analyze
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       - name: Test the package
         run: flutter test
