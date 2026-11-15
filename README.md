@@ -271,12 +271,18 @@ FoldDivision.config.value = FoldDivision.config.value.copyWith(
 );
 ```
 
-Which state is used comes from the real window:
+Which state is used comes from the hinge angle and the real window:
 
-- A real fold or hinge that crosses the window means the inner display. A fold that runs top
-  to bottom gives the landscape state and one that runs left to right gives the portrait state.
-- No fold means the outer display. A window wider than it is tall gives the landscape state,
-  any other window the portrait state.
+- With a hinge sensor reading, the angle decides the display. 20 degrees or less is the outer
+  display, even if Android still lists a fold. Anything above is the inner display, even if
+  Android lists no fold, which a foldable emulator does at 180 degrees. The fold axis then comes
+  from the fold Android lists, or else from the axis last seen for a window of the same
+  orientation, or else from the window shape: wider than tall gives the landscape state.
+- With no hinge sensor, or no reading yet, a fold or hinge that crosses the window means the
+  inner display and no fold means the outer display.
+- A fold that runs top to bottom gives the inner landscape state and one that runs left to
+  right gives the inner portrait state. On the outer display a window wider than it is tall
+  gives the landscape state, any other window the portrait state.
 
 With `matchWindowSize` on (the default):
 
@@ -389,10 +395,12 @@ The package registers itself as the `foldable` platform implementation. It merge
 
 How the data is converted:
 
-- **Posture.** A half opened fold is `partiallyOpen` and a flat one is `fullyOpen`. With no fold
-  in the window, a device that has a hinge sensor follows the angle: 20 degrees or less is
-  `closed`, which is the cover screen. With no fold and no angle reading yet the posture is
-  `unknown`.
+- **Posture.** The hinge angle decides whenever the sensor has given one: 20 degrees or less
+  is `closed`, 160 or more is `fullyOpen` and anything between is `partiallyOpen`. The state
+  Android attaches to the fold is used only while there is no angle: a half opened fold is
+  `partiallyOpen` and a flat one is `fullyOpen`. With no angle and no fold the posture is
+  `unknown`. The angle wins because the fold list can lag: a foldable emulator lists the fold
+  as flat with the hinge at 90 degrees.
 - **Regions.** Each fold or hinge becomes a `division` region. With division mode on it is
   `divisionExtent` across and centred on the fold. A hinge wider than `divisionExtent` keeps its
   own width, and a fold near a window edge gives a division cut to the window. With division
@@ -461,6 +469,11 @@ change, with switches for division mode, the window size match and the overlay.
   statics report the real window: the division on the real hinge, real cutouts, size classes of
   the real window. A phone with no hinge is not emulated. A foldable with no hinge sensor is
   emulated only while a fold is in the window, so its cover screen stays real.
+- **The fold axis can be a guess.** When Android lists no fold and none was seen earlier for
+  that window orientation, the inner state comes from the window shape. A Galaxy Z Fold held
+  upright is taller than wide with a fold that runs top to bottom, so it would get the inner
+  portrait state until Android lists the fold once. The axis seen is kept while the scope
+  stays mounted.
 - **The first frame is real.** The scope learns that the device folds from the first snapshot
   of the platform. The emulated window appears once that snapshot arrives, after the first
   frame.
@@ -475,8 +488,12 @@ change, with switches for division mode, the window size match and the overlay.
   `keepClearRectOf` and the overlay use `config.margins` on iOS too. The default of 12 logical
   pixels is a guess that nobody has confirmed on iPhone Duo hardware. Set your own value once you
   have a real reading.
-- **Posture needs a fold in the window.** In split screen, a window that sits on one side of the
-  fold has no display feature. The posture then comes from the hinge angle alone.
+- **With no angle the posture needs a fold in the window.** The hinge angle is the first source.
+  On a device with no hinge sensor, a split screen window that sits on one side of the fold has
+  no display feature and reads `unknown`.
+- **A division on the real hinge needs Android to list the fold.** With `device` null or
+  `matchWindowSize` off the division takes its place from the listed fold. While Android lists
+  none there is no division, whatever the angle.
 - **A one-off read may have no angle.** The Android sensor reports only while something
   listens to the stream. `Foldable.snapshot` and `Foldable.hingeStatus` called with no listener
   get a null angle, unless an earlier listener left a reading behind. With a null angle the

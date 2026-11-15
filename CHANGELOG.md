@@ -28,7 +28,13 @@ Changed:
   emulates the iPhone Duo window. Set `device` to null (`copyWith(clearDevice: true)`) for the
   0.1.0 behaviour: the real window with the division on the hinge.
 
+- The hinge angle decides the posture whenever the sensor has given one. The state Android
+  attaches to the fold is used only with no angle. In 0.1.0 that state came first.
+
 Fixed:
+
+- An open device whose fold Android does not list (a foldable emulator at 180 degrees) is
+  rendered as the inner display, and a fold listed as flat at 90 degrees reads `partiallyOpen`.
 
 - Display feature bounds are read as logical pixels, which is what the engine reports. They
   were divided by the device pixel ratio a second time, which put the division at a fraction of
