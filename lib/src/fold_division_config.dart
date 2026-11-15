@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
+import 'emulated_device.dart';
+
 /// When the emulated division counts as active.
 enum DivisionActivation {
   /// The division is active while the hinge is partially open, as on iPhone
@@ -30,6 +32,8 @@ class FoldDivisionConfig {
     this.divisionExtent = defaultDivisionExtent,
     this.margins = defaultMargins,
     this.activation = DivisionActivation.followPosture,
+    this.device = EmulatedDevice.iphoneDuo,
+    this.matchWindowSize = true,
   }) : assert(divisionExtent >= 0, 'divisionExtent must not be negative');
 
   /// The width of the iPhone Duo division, in logical pixels.
@@ -47,8 +51,11 @@ class FoldDivisionConfig {
   /// Whether division mode is on.
   ///
   /// On: an Android fold is reported as an iPhone Duo style division,
-  /// [divisionExtent] across and centred on the hinge.
-  /// Off: the real hinge bounds are reported unchanged.
+  /// [divisionExtent] across and centred on the hinge, and a
+  /// `FoldDivisionScope` on an Android foldable renders its subtree as
+  /// [device].
+  /// Off: the real hinge bounds are reported unchanged and no device is
+  /// emulated.
   ///
   /// Defaults to [kDebugMode], so release builds report the real hinge unless
   /// the app turns the mode on.
@@ -70,6 +77,27 @@ class FoldDivisionConfig {
   /// When the emulated division counts as active.
   final DivisionActivation activation;
 
+  /// The device a `FoldDivisionScope` renders its subtree as, on an Android
+  /// foldable while [enabled] is true.
+  ///
+  /// Defaults to [EmulatedDevice.iphoneDuo], so turning division mode on
+  /// gives the window size, the safe area and the fold of an iPhone Duo.
+  /// Null emulates no device: the window and its safe area stay real and the
+  /// division sits on the hinge.
+  final EmulatedDevice? device;
+
+  /// Whether the subtree of a `FoldDivisionScope` gets the window size of
+  /// [device].
+  ///
+  /// On: the subtree is laid out at the window size of the device, scaled to
+  /// fit the real window, and the division sits on the fold of the device.
+  /// Off: the window keeps its real size, the safe area is the larger of the
+  /// real one and the one of the device on each side, and the division sits
+  /// on the real hinge.
+  ///
+  /// It has no effect while [device] is null.
+  final bool matchWindowSize;
+
   /// [margins] turned to match a division with the bounds [division].
   ///
   /// A division at least as tall as it is wide gets [margins] as written. A
@@ -90,17 +118,25 @@ class FoldDivisionConfig {
       marginsFor(division).inflateRect(division);
 
   /// Returns a copy with the given fields replaced.
+  ///
+  /// Pass [clearDevice] to emulate no device. A null [device] keeps the
+  /// current one.
   FoldDivisionConfig copyWith({
     bool? enabled,
     double? divisionExtent,
     EdgeInsets? margins,
     DivisionActivation? activation,
+    EmulatedDevice? device,
+    bool clearDevice = false,
+    bool? matchWindowSize,
   }) {
     return FoldDivisionConfig(
       enabled: enabled ?? this.enabled,
       divisionExtent: divisionExtent ?? this.divisionExtent,
       margins: margins ?? this.margins,
       activation: activation ?? this.activation,
+      device: clearDevice ? null : (device ?? this.device),
+      matchWindowSize: matchWindowSize ?? this.matchWindowSize,
     );
   }
 
@@ -111,13 +147,23 @@ class FoldDivisionConfig {
           other.enabled == enabled &&
           other.divisionExtent == divisionExtent &&
           other.margins == margins &&
-          other.activation == activation;
+          other.activation == activation &&
+          other.device == device &&
+          other.matchWindowSize == matchWindowSize;
 
   @override
-  int get hashCode => Object.hash(enabled, divisionExtent, margins, activation);
+  int get hashCode => Object.hash(
+        enabled,
+        divisionExtent,
+        margins,
+        activation,
+        device,
+        matchWindowSize,
+      );
 
   @override
   String toString() =>
       'FoldDivisionConfig(enabled: $enabled, extent: $divisionExtent, '
-      'margins: $margins, activation: ${activation.name})';
+      'margins: $margins, activation: ${activation.name}, '
+      'device: ${device?.name}, matchWindowSize: $matchWindowSize)';
 }

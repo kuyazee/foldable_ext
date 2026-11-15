@@ -96,7 +96,12 @@ void main() {
   late FoldDivisionAndroid platform;
 
   setUp(() {
-    FoldDivision.config.value = const FoldDivisionConfig(enabled: true);
+    // No device: these tests cover the division on the real hinge, in the
+    // real window. Device emulation has its own file.
+    FoldDivision.config.value = const FoldDivisionConfig(
+      enabled: true,
+      device: null,
+    );
     plugin = FakeHingePlugin(angle: 95)..install();
     platform = FoldDivisionAndroid();
   });

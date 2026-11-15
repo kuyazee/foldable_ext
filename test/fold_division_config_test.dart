@@ -10,6 +10,9 @@ void main() {
     expect(config.divisionExtent, 40);
     expect(config.margins, const EdgeInsets.symmetric(horizontal: 12));
     expect(config.activation, DivisionActivation.followPosture);
+    // Division mode on means iPhone Duo rendering, window size included.
+    expect(config.device, EmulatedDevice.iphoneDuo);
+    expect(config.matchWindowSize, isTrue);
   });
 
   test('copyWith replaces only the given fields', () {
@@ -22,7 +25,25 @@ void main() {
     expect(next.divisionExtent, 24);
     expect(next.margins, config.margins);
     expect(next.activation, DivisionActivation.always);
+    expect(next.device, EmulatedDevice.iphoneDuo);
+    expect(next.matchWindowSize, isTrue);
     expect(config.copyWith(), config);
+  });
+
+  test('copyWith replaces, keeps and clears the device', () {
+    const FoldDivisionConfig config = FoldDivisionConfig(enabled: true);
+    final EmulatedDevice other = EmulatedDevice.iphoneDuo.copyWith(
+      name: 'other',
+    );
+    expect(config.copyWith(device: other).device, other);
+    expect(config.copyWith(matchWindowSize: false).matchWindowSize, isFalse);
+    expect(config.copyWith(matchWindowSize: false).device, config.device);
+    expect(config.copyWith(clearDevice: true).device, isNull);
+    // A cleared device stays cleared through a later copy.
+    expect(
+      config.copyWith(clearDevice: true).copyWith(enabled: false).device,
+      isNull,
+    );
   });
 
   test('equality and hashCode follow the fields', () {
@@ -34,6 +55,8 @@ void main() {
     expect(a, isNot(a.copyWith(divisionExtent: 41)));
     expect(a, isNot(a.copyWith(margins: EdgeInsets.zero)));
     expect(a, isNot(a.copyWith(activation: DivisionActivation.always)));
+    expect(a, isNot(a.copyWith(clearDevice: true)));
+    expect(a, isNot(a.copyWith(matchWindowSize: false)));
   });
 
   test('margins stay as written for an upright division', () {
@@ -74,5 +97,6 @@ void main() {
     expect(FoldDivision.config.value.enabled, isTrue);
     // The default platform is the iOS channel one, so nothing is emulated.
     expect(FoldDivision.isEmulating, isFalse);
+    expect(FoldDivision.isEmulatingDevice, isFalse);
   });
 }

@@ -4,6 +4,7 @@ import 'dart:ui'
 
 import 'package:foldable/foldable.dart';
 
+import 'emulated_device.dart';
 import 'fold_division_config.dart';
 
 /// The `FoldableCapabilities.strategy` of every snapshot this package builds.
@@ -311,5 +312,90 @@ Rect _divisionBounds(Rect fold, Size viewSize, double extent) {
     division.top.clamp(0.0, viewSize.height),
     division.right.clamp(0.0, viewSize.width),
     division.bottom.clamp(0.0, viewSize.height),
+  );
+}
+
+/// Picks the window of an emulated device that stands for the real one.
+///
+/// - A fold or hinge in [logicalFeatures] that crosses the window means the
+///   inner display. A fold that runs top to bottom gives
+///   [EmulatedWindowKind.innerLandscape] and one that runs left to right
+///   gives [EmulatedWindowKind.innerPortrait].
+/// - No such fold means the outer display. A window wider than it is tall
+///   gives [EmulatedWindowKind.outerLandscape], any other window
+///   [EmulatedWindowKind.outerPortrait].
+///
+/// A fold crosses the window when its centre line lies between two opposite
+/// window edges. A fold on an edge, such as the one beside a split screen
+/// half, splits nothing and counts as no fold.
+///
+/// [windowSize] and the feature bounds are in logical pixels.
+EmulatedWindowKind selectEmulatedWindow({
+  required Size windowSize,
+  required Iterable<DisplayFeature> logicalFeatures,
+}) {
+  for (final DisplayFeature feature in logicalFeatures) {
+    if (feature.type != DisplayFeatureType.fold &&
+        feature.type != DisplayFeatureType.hinge) {
+      continue;
+    }
+    final Rect fold = feature.bounds;
+    if (_standsUpright(fold, windowSize)) {
+      if (fold.center.dx > 0 && fold.center.dx < windowSize.width) {
+        return EmulatedWindowKind.innerLandscape;
+      }
+    } else if (fold.center.dy > 0 && fold.center.dy < windowSize.height) {
+      return EmulatedWindowKind.innerPortrait;
+    }
+  }
+  return windowSize.width > windowSize.height
+      ? EmulatedWindowKind.outerLandscape
+      : EmulatedWindowKind.outerPortrait;
+}
+
+/// [data] as an app in the emulated window [state] sees it.
+///
+/// A pure function. [data] is a snapshot of the real window, as
+/// [emulateDivision] builds it. The result is in the coordinates of the
+/// emulated window:
+///
+/// - The regions are replaced. A state with a fold gets one `division`,
+///   `config.divisionExtent` thick, centred on the fold of the state and
+///   running the whole window. It is active while the posture of [data] is
+///   `partiallyOpen`, which follows the real hinge or
+///   `DivisionActivation.always`. Each occlusion of the state becomes an
+///   active `occlusion` region. Regions of the real window (the real fold,
+///   the camera cutout) are dropped: their bounds belong to another
+///   coordinate space and the emulated device does not have them.
+/// - The size classes come from the window size of the state.
+/// - `displayFeatures` is empty, for the scope to fill from its bridge mode.
+/// - Capabilities, posture and hinge angle are kept.
+FoldableData emulateDeviceData({
+  required FoldableData data,
+  required EmulatedDeviceState state,
+  required FoldDivisionConfig config,
+}) {
+  final Rect? division = state.divisionRect(config.divisionExtent);
+  return FoldableData(
+    capabilities: data.capabilities,
+    status: data.status,
+    angleDegrees: data.angleDegrees,
+    regions: List<ReservedRegion>.unmodifiable(<ReservedRegion>[
+      if (division != null)
+        ReservedRegion(
+          kind: ReservedRegionKind.division,
+          bounds: division,
+          isActive: data.status == HingeStatus.partiallyOpen,
+        ),
+      for (final Rect occlusion in state.occlusions)
+        ReservedRegion(
+          kind: ReservedRegionKind.occlusion,
+          bounds: occlusion,
+          isActive: true,
+        ),
+    ]),
+    displayFeatures: const <DisplayFeature>[],
+    horizontalSizeClass: sizeClassForWidth(state.windowSize.width),
+    verticalSizeClass: sizeClassForHeight(state.windowSize.height),
   );
 }

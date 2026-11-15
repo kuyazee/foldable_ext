@@ -40,8 +40,16 @@ void main() {
       FoldDivisionAndroid.registerWith();
       expect(FoldablePlatform.instance, isA<FoldDivisionAndroid>());
       expect(FoldDivision.isEmulating, isTrue);
+      expect(FoldDivision.isEmulatingDevice, isTrue);
+      FoldDivision.config.value = FoldDivision.config.value.copyWith(
+        clearDevice: true,
+      );
+      expect(FoldDivision.isEmulating, isTrue);
+      expect(FoldDivision.isEmulatingDevice, isFalse);
+      FoldDivision.config.value = const FoldDivisionConfig(enabled: true);
       FoldDivision.disable();
       expect(FoldDivision.isEmulating, isFalse);
+      expect(FoldDivision.isEmulatingDevice, isFalse);
     });
 
     test('the Foldable API answers from the Android fold', () async {
