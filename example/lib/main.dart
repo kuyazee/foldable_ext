@@ -1,3 +1,5 @@
+import 'dart:ui' show DisplayFeature;
+
 import 'package:flutter/material.dart';
 import 'package:foldable_ext/foldable_ext.dart';
 
@@ -258,6 +260,10 @@ class _LiveValues extends StatelessWidget {
           'MediaQuery display features',
           '${MediaQuery.displayFeaturesOf(context).length}',
         ),
+        _ValueRow(
+          'Engine display features',
+          _features(View.of(context).displayFeatures),
+        ),
         _ValueRow('Emulating', FoldDivision.isEmulating ? 'yes' : 'no'),
         _ValueRow('Support level', caps.supportLevel.name),
         _ValueRow('Foldable', caps.isFoldable ? 'yes' : 'no'),
@@ -267,6 +273,18 @@ class _LiveValues extends StatelessWidget {
         _ValueRow('Strategy', caps.strategy),
       ],
     );
+  }
+
+  /// The list the engine reports, before the scope rewrites it. It can
+  /// disagree with the hinge angle, which is why it is on screen.
+  static String _features(List<DisplayFeature> features) {
+    if (features.isEmpty) return 'none';
+    return features
+        .map(
+          (DisplayFeature feature) => '${feature.type.name} '
+              '${feature.state.name} ${_rect(feature.bounds)}',
+        )
+        .join('\n');
   }
 
   static String _insets(EdgeInsets insets) =>

@@ -127,7 +127,8 @@ void main() {
     await tester.scrollUntilVisible(find.text('Safe area'), 200);
 
     // A stream of test data is not emulated: the real 800 x 600 test window.
-    expect(find.text('none'), findsNWidgets(3));
+    // Device, window and scale, plus the empty engine feature list.
+    expect(find.text('none'), findsNWidgets(4));
     expect(find.text('800 x 600'), findsOneWidget);
     expect(find.text('l 0, t 0, r 0, b 0'), findsOneWidget);
   });
