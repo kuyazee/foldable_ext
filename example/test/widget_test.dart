@@ -111,6 +111,27 @@ void main() {
     expect(FoldDivision.config.value.enabled, isFalse);
   });
 
+  testWidgets('the window size switch changes the config', (tester) async {
+    await _pump(tester, _halfOpen);
+    expect(FoldDivision.config.value.matchWindowSize, isTrue);
+
+    await tester.tap(find.byKey(const ValueKey<String>('match-window-size')));
+    await tester.pump();
+
+    expect(FoldDivision.config.value.matchWindowSize, isFalse);
+  });
+
+  testWidgets('shows the window MediaQuery describes', (tester) async {
+    await _pump(tester, _halfOpen);
+
+    await tester.scrollUntilVisible(find.text('Safe area'), 200);
+
+    // A stream of test data is not emulated: the real 800 x 600 test window.
+    expect(find.text('none'), findsNWidgets(3));
+    expect(find.text('800 x 600'), findsOneWidget);
+    expect(find.text('l 0, t 0, r 0, b 0'), findsOneWidget);
+  });
+
   testWidgets('the activation control changes the config', (tester) async {
     await _pump(tester, _halfOpen);
     expect(

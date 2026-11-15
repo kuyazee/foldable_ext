@@ -16,12 +16,17 @@ emulator setup.
 
 ## What is on the screen
 
-- **Division mode** switches between the real hinge bounds and the iPhone Duo style division.
+- **Division mode** switches between the real window with the real hinge bounds and iPhone Duo
+  rendering: its window size, its safe area and its 40 point division.
+- **Match window size** picks between the iPhone Duo window scaled to fit and the real window
+  with the iPhone Duo safe area.
 - **Division is active** picks between following the posture and staying active on a flat device.
-- **Overlay** draws the division and its keep-clear margins over the app.
+- **Overlay** draws the division, its keep-clear margins, the occlusions and the safe area edges
+  over the app.
 - The lettered buttons span the width of the screen. A button turns red while it overlaps the
   keep-clear zone.
-- **Live values** lists what the `foldable` API reports: posture, hinge angle, regions, size
+- **Live values** lists the emulated device and window, the window size and safe area
+  `MediaQuery` reports, and what the `foldable` API reports: posture, hinge angle, regions, size
   classes and capabilities.
 
 All of the code is in [`lib/main.dart`](lib/main.dart).

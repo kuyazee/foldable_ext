@@ -6,7 +6,7 @@ void main() {
 }
 
 /// One screen that shows what the `foldable` API reports and lets you change
-/// division mode while the app runs.
+/// division mode and device emulation while the app runs.
 class FoldDivisionExampleApp extends StatefulWidget {
   const FoldDivisionExampleApp({super.key, this.debugData});
 
@@ -122,7 +122,8 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-/// The division mode switch, the activation control and the overlay switch.
+/// The division mode switch, the window size switch, the activation control
+/// and the overlay switch.
 class _Controls extends StatelessWidget {
   const _Controls({
     required this.showOverlay,
@@ -143,12 +144,28 @@ class _Controls extends StatelessWidget {
           key: const ValueKey<String>('division-mode'),
           title: const Text('Division mode'),
           subtitle: const Text(
-            'Report the Android hinge as an iPhone Duo division',
+            'Render as an iPhone Duo on an Android foldable',
           ),
           value: config.enabled,
           onChanged: (bool value) {
             FoldDivision.config.value = config.copyWith(enabled: value);
           },
+        ),
+        SwitchListTile(
+          key: const ValueKey<String>('match-window-size'),
+          title: const Text('Match window size'),
+          subtitle: const Text(
+            'On: the iPhone Duo window, scaled to fit. '
+            'Off: the real window with the iPhone Duo safe area',
+          ),
+          value: config.matchWindowSize,
+          onChanged: config.enabled
+              ? (bool value) {
+                  FoldDivision.config.value = config.copyWith(
+                    matchWindowSize: value,
+                  );
+                }
+              : null,
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -181,7 +198,9 @@ class _Controls extends StatelessWidget {
         SwitchListTile(
           key: const ValueKey<String>('overlay'),
           title: const Text('Overlay'),
-          subtitle: const Text('Draw the division and its keep-clear margins'),
+          subtitle: const Text(
+            'Draw the division, its margins, the occlusions and the safe area',
+          ),
           value: showOverlay,
           onChanged: onShowOverlayChanged,
         ),
@@ -190,7 +209,7 @@ class _Controls extends StatelessWidget {
   }
 }
 
-/// What the base `foldable` API reports.
+/// What the base `foldable` API, `MediaQuery` and the emulation report.
 class _LiveValues extends StatelessWidget {
   const _LiveValues();
 
@@ -200,9 +219,23 @@ class _LiveValues extends StatelessWidget {
     final FoldableCapabilities caps = data.capabilities;
     final double? angle = data.angleDegrees;
     final Rect? keepClear = FoldDivision.keepClearRectOf(context);
+    final DeviceEmulation? emulation = FoldDivision.emulationOf(context);
+    final MediaQueryData media = MediaQuery.of(context);
 
     return Column(
       children: <Widget>[
+        _ValueRow('Emulated device', emulation?.device.name ?? 'none'),
+        _ValueRow('Emulated window', emulation?.kind.name ?? 'none'),
+        _ValueRow(
+          'Scale',
+          emulation == null ? 'none' : emulation.scale.toStringAsFixed(3),
+        ),
+        _ValueRow(
+          'Window size',
+          '${media.size.width.toStringAsFixed(0)} x '
+              '${media.size.height.toStringAsFixed(0)}',
+        ),
+        _ValueRow('Safe area', _insets(media.viewPadding)),
         _ValueRow('Posture', data.status.name),
         _ValueRow(
           'Hinge angle',
@@ -235,6 +268,11 @@ class _LiveValues extends StatelessWidget {
       ],
     );
   }
+
+  static String _insets(EdgeInsets insets) =>
+      'l ${insets.left.toStringAsFixed(0)}, t ${insets.top.toStringAsFixed(0)}, '
+      'r ${insets.right.toStringAsFixed(0)}, '
+      'b ${insets.bottom.toStringAsFixed(0)}';
 
   static String _rect(Rect rect) =>
       '${rect.left.toStringAsFixed(0)},${rect.top.toStringAsFixed(0)} '
@@ -333,11 +371,12 @@ class ProbeButtonState extends State<ProbeButton> {
 
   void _measure() {
     if (!mounted) return;
-    final RenderObject? box = context.findRenderObject();
-    if (box is! RenderBox || !box.attached || !box.hasSize) return;
-    // Region bounds are in the coordinates of the Flutter view, and so is
-    // this rect.
-    final Rect bounds = box.localToGlobal(Offset.zero) & box.size;
+    // Region bounds are in the coordinates of the window MediaQuery
+    // describes, which is the emulated one while a device is emulated.
+    // `windowRectOf` answers in the same coordinates. `localToGlobal` would
+    // answer in those of the real view.
+    final Rect? bounds = FoldDivision.windowRectOf(context);
+    if (bounds == null) return;
     final Rect? keepClear = _keepClear;
     final bool next = keepClear != null && keepClear.overlaps(bounds);
     if (next != inZone) {
