@@ -776,6 +776,67 @@ void main() {
     });
   });
 
+  group('buffer of the emulated window', () {
+    Iterable<ClipRectLayer> bufferedClips(WidgetTester tester) =>
+        tester.layers.whereType<ClipRectLayer>().where(
+              (ClipRectLayer layer) =>
+                  layer.clipBehavior == Clip.antiAliasWithSaveLayer,
+            );
+
+    testWidgets('the window is composited into a layer with its own bounds', (
+      WidgetTester tester,
+    ) async {
+      showInnerDisplay(DisplayFeatureState.postureHalfOpened);
+      showBars();
+      // A backdrop filter flush with the top of the window, as a blurred
+      // top bar is.
+      await pumpScope(
+        tester,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: const SizedBox(width: double.infinity, height: 56),
+            ),
+          ),
+        ),
+      );
+
+      // The save layer is what keeps the blur from sampling the black
+      // around the window: a filter inside reads that buffer only.
+      final EmulatedSpaceLayer space =
+          tester.layers.whereType<EmulatedSpaceLayer>().single;
+      final ClipRectLayer buffer = bufferedClips(tester).single;
+      expect(buffer.parent, same(space));
+      expect(buffer.clipRect, const Rect.fromLTWH(0, 0, 951, 669));
+      final BackdropFilterLayer filter =
+          tester.layers.whereType<BackdropFilterLayer>().single;
+      bool inside = false;
+      for (Layer? layer = filter; layer != null; layer = layer.parent) {
+        if (identical(layer, buffer)) inside = true;
+      }
+      expect(inside, isTrue);
+
+      // Not emulating: no buffer and no transform layer are left behind.
+      FoldDivision.disable();
+      await settle(tester);
+      expect(bufferedClips(tester), isEmpty);
+      expect(tester.layers.whereType<EmulatedSpaceLayer>(), isEmpty);
+      expect(tester.layers.whereType<BackdropFilterLayer>(), hasLength(1));
+
+      FoldDivision.config.value = const FoldDivisionConfig(
+        enabled: true,
+        matchWindowSize: false,
+      );
+      await settle(tester);
+      expect(bufferedClips(tester), isEmpty);
+      expect(tester.layers.whereType<EmulatedSpaceLayer>(), isEmpty);
+
+      await unmount(tester);
+    });
+  });
+
   group('matchWindowSize off', () {
     testWidgets('keeps the real window and takes the emulated safe area', (
       WidgetTester tester,

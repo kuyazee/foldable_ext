@@ -7,7 +7,10 @@ import 'emulated_device.dart';
 /// With a [windowSize] the box fills its parent, gives the child exactly
 /// [windowSize] to lay out in, and shows it scaled to fit the area left by
 /// [padding], centred, over [backdropColor]. The child is clipped to its
-/// window, as a real window clips an app. Pointers reach the child through
+/// window, as a real window clips an app. While the subtree holds layers of
+/// its own the window is composited into a buffer bounded by that clip, so
+/// a `BackdropFilter` inside never samples pixels outside the window.
+/// Pointers reach the child through
 /// the scale, in its own coordinates, and the backdrop around it takes the
 /// ones that miss.
 ///
@@ -209,6 +212,12 @@ class RenderEmulatedWindow extends RenderProxyBox {
           bounds,
           (PaintingContext context, Offset offset) =>
               context.paintChild(child, offset),
+          // The window gets a buffer of its own, bounded by the clip. A
+          // backdrop filter in the subtree then reads this buffer only, and
+          // its blur treats the window edge as the edge of a screen. With a
+          // plain clip it would sample the backdrop beside the window and
+          // pull black in along the edge.
+          clipBehavior: Clip.antiAliasWithSaveLayer,
           oldLayer: _clipLayer.layer,
         );
       },
