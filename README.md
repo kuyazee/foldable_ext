@@ -289,6 +289,9 @@ With `matchWindowSize` on (the default):
 - The subtree is laid out in a box of the emulated window size. The box is scaled by one factor
   to fit inside the real window less the Android status and navigation bars, centred, with
   black around it. Touches reach the widgets through the scale.
+- The window is clipped and drawn into a buffer of its own size. A `BackdropFilter` at its edge
+  blurs what is inside the window only, as it does at the edge of a real screen. The buffer
+  costs one offscreen layer per frame while a window size is emulated, and none otherwise.
 - `MediaQuery` under the scope describes the emulated window: `size`, the safe area as `padding`
   and `viewPadding`, `devicePixelRatio` multiplied by the scale so physical pixels stay true,
   the keyboard inset converted into emulated coordinates, and zero `systemGestureInsets`. The

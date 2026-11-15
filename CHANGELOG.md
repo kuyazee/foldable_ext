@@ -20,7 +20,8 @@ renders as it does on an iPhone Duo.
   `mergeSafeArea`, the pure functions behind the scope.
 - `FoldDivisionOverlay` draws the occlusions and the safe area edges of the emulated device,
   with `occlusionColor` and `safeAreaColor`.
-- The example app has a switch for `matchWindowSize` and shows the emulated window.
+- The example app has a switch for `matchWindowSize`, shows the emulated window and blurs the
+  list under its top bar.
 
 Changed:
 
@@ -33,6 +34,8 @@ Changed:
 
 Fixed:
 
+- The emulated window is composited into a buffer of its own size, so a `BackdropFilter` at its
+  edge no longer blurs the black around the window into the app.
 - An open device whose fold Android does not list (a foldable emulator at 180 degrees) is
   rendered as the inner display, and a fold listed as flat at 90 degrees reads `partiallyOpen`.
 
