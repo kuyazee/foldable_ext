@@ -1,0 +1,123 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dart:
+    name: Analyze and test (Flutter ${{ matrix.flutter }})
+    runs-on: ubuntu-latest
+    # A break on beta is a warning about the next stable. It does not fail the run.
+    continue-on-error: ${{ matrix.channel == 'beta' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The floor in pubspec.yaml.
+          - flutter: 3.24.x
+            version: 3.24.x
+            channel: stable
+          - flutter: 3.27.x
+            version: 3.27.x
+            channel: stable
+          - flutter: 3.32.x
+            version: 3.32.x
+            channel: stable
+          - flutter: 3.38.x
+            version: 3.38.x
+            channel: stable
+          # An empty version means the newest release on the channel.
+          - flutter: stable
+            version: ''
+            channel: stable
+          - flutter: beta
+            version: ''
+            channel: beta
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ matrix.version }}
+          channel: ${{ matrix.channel }}
+          cache: true
+
+      - name: Show the Flutter version
+        run: flutter --version
+
+      - name: Get packages
+        run: |
+          flutter pub get
+          (cd example && flutter pub get)
+
+      # Covers lib/, test/ and example/.
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test the package
+        run: flutter test
+
+      - name: Test the example
+        run: flutter test
+        working-directory: example
+
+  android:
+    name: Android build (Flutter ${{ matrix.flutter }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - flutter: 3.24.x
+            version: 3.24.x
+          - flutter: 3.38.x
+            version: 3.38.x
+          - flutter: stable
+            version: ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Gradle needs a JDK. Name one here so the build does not depend on
+      # whichever JDK the runner image ships.
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ matrix.version }}
+          channel: stable
+          cache: true
+
+      # example/android pins one Gradle toolchain, so it cannot stand in for
+      # older Flutter versions. A new app made by each Flutter version uses
+      # that version's own Gradle, Android Gradle plugin and Kotlin, and
+      # building it compiles android/build.gradle and the Kotlin plugin.
+      - name: Build a new app that depends on the plugin
+        run: |
+          flutter create --platforms=android --project-name host_app "$RUNNER_TEMP/host_app"
+          cd "$RUNNER_TEMP/host_app"
+          flutter pub add foldable_ext --path "$GITHUB_WORKSPACE"
+          flutter build apk --debug
+
+      - name: Build the example and run the Kotlin unit tests
+        if: matrix.flutter == 'stable'
+        run: |
+          flutter build apk --debug
+          cd android
+          ./gradlew :foldable_ext:testDebugUnitTest
+        working-directory: example

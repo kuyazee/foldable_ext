@@ -1,0 +1,34 @@
+name: foldable_ext
+description: "Makes an Android foldable report the iPhone Duo fold division through the foldable package API, so iPhone Duo layouts can be built and debugged on a Galaxy Z Fold or a foldable emulator."
+version: 0.1.0
+repository: https://github.com/kuyazee/foldable_ext
+issue_tracker: https://github.com/kuyazee/foldable_ext/issues
+
+topics:
+  - foldable
+  - iphone-duo
+  - android
+  - responsive
+  - layout
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  foldable: ^1.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.kuyazee.foldable_ext
+        pluginClass: FoldableExtPlugin
+        dartPluginClass: FoldDivisionAndroid

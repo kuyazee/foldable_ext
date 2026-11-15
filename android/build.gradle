@@ -1,0 +1,88 @@
+group = "com.kuyazee.foldable_ext"
+version = "1.0-SNAPSHOT"
+
+// This file stays in Groovy and avoids version-specific DSL so one copy builds
+// with every Android toolchain from Flutter 3.24 (AGP 7.3, Kotlin 1.7) to
+// current stable (AGP 9, Kotlin 2.3).
+
+// Used only when this folder is opened as a standalone Gradle project. Inside
+// an app, the app's own Android Gradle plugin and Kotlin versions win.
+buildscript {
+    ext.kotlin_version = "1.8.22"
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath("com.android.tools.build:gradle:8.1.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: "com.android.library"
+
+// Flutter 3.44 and later applies the Kotlin Gradle plugin to plugin projects,
+// and AGP 9 with built-in Kotlin registers the `kotlin` extension without it.
+// Older Flutter versions do neither, so apply it here when it is missing.
+if (!project.plugins.hasPlugin("org.jetbrains.kotlin.android") &&
+        project.extensions.findByName("kotlin") == null) {
+    project.pluginManager.apply("org.jetbrains.kotlin.android")
+}
+
+android {
+    if (project.android.hasProperty("namespace")) {
+        namespace = "com.kuyazee.foldable_ext"
+    }
+
+    // Sensor.TYPE_HINGE_ANGLE needs API 30 to compile. 34 is what the
+    // Flutter 3.24 template used.
+    compileSdk = 34
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    sourceSets {
+        main.java.srcDirs += "src/main/kotlin"
+        test.java.srcDirs += "src/test/kotlin"
+    }
+
+    defaultConfig {
+        minSdk = 21
+    }
+
+    testOptions {
+        unitTests.all {
+            useJUnitPlatform()
+
+            testLogging {
+                events "passed", "skipped", "failed"
+                outputs.upToDateWhen { false }
+            }
+        }
+    }
+}
+
+// `kotlinOptions` is gone from Kotlin 2.3 and `compilerOptions` does not exist
+// before Kotlin 1.8, so set the JVM target through whichever one the task has.
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
+    if (task.hasProperty("compilerOptions")) {
+        task.compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+    } else {
+        task.kotlinOptions.jvmTarget = "11"
+    }
+}
+
+dependencies {
+    testImplementation("org.jetbrains.kotlin:kotlin-test")
+    testImplementation("org.mockito:mockito-core:5.0.0")
+}

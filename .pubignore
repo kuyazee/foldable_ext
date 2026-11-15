@@ -1,0 +1,30 @@
+# pub reads this file in place of .gitignore, so it repeats the entries that
+# keep IDE files, machine paths and build output out of the published archive.
+
+# IDE files
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/
+.DS_Store
+
+# Flutter, Dart and pub
+pubspec.lock
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+coverage/
+doc/api/
+
+# Android: machine paths, Gradle caches and files the tools generate
+local.properties
+.gradle/
+.cxx/
+.kotlin/
+captures/
+GeneratedPluginRegistrant.java
+
+# Repo housekeeping that package users do not need
+.github/
