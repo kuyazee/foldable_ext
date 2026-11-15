@@ -1,4 +1,4 @@
-import 'dart:ui' show DisplayFeature;
+import 'dart:ui' show DisplayFeature, ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:foldable_ext/foldable_ext.dart';
@@ -71,11 +71,30 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('foldable_ext')),
+      // The list scrolls under a bar that blurs it. The bar is flush with
+      // the top of the window, so its blur reaches the window edge: under an
+      // emulated window that edge is inside the screen.
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: const Text('foldable_ext'),
+        backgroundColor: colors.surface.withValues(alpha: 0.6),
+        scrolledUnderElevation: 0,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ),
       body: ListView(
         controller: _scroll,
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        // The list starts below the bar and scrolls under it.
+        padding: EdgeInsets.only(
+          top: MediaQuery.paddingOf(context).top + kToolbarHeight + 8,
+          bottom: 8,
+        ),
         children: <Widget>[
           const _SectionTitle('Division mode'),
           _Controls(

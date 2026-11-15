@@ -23,6 +23,8 @@ emulator setup.
 - **Division is active** picks between following the posture and staying active on a flat device.
 - **Overlay** draws the division, its keep-clear margins, the occlusions and the safe area edges
   over the app.
+- The top bar blurs the list that scrolls under it. Its blur reaches the top edge of the window,
+  which shows whether the emulated window keeps the black around it out.
 - The lettered buttons span the width of the screen. A button turns red while it overlaps the
   keep-clear zone.
 - **Live values** lists the emulated device and window, the window size and safe area
