@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'dart:ui'
     show DisplayFeature, DisplayFeatureState, DisplayFeatureType, Rect, Size;
 
+import 'package:flutter/painting.dart' show Axis;
+
 import 'package:foldable/foldable.dart';
 
 import 'emulated_device.dart';
@@ -109,26 +111,31 @@ List<DisplayFeature> logicalDisplayFeatures(
 ///
 /// ## Posture
 ///
-/// With a fold or hinge feature in the window:
+/// The hinge angle is the direct reading, so it decides whenever there is
+/// one. The engine can list a fold as `postureFlat` while the hinge stands
+/// at 90 degrees, and can keep listing a fold that is no longer in the
+/// window.
 ///
-/// - `postureHalfOpened` gives `partiallyOpen`.
-/// - `postureFlat` gives `fullyOpen`.
-/// - An `unknown` state falls back to [postureForAngle]. A `closed` answer
-///   becomes `partiallyOpen` there, since a closed device shows no fold.
+/// With an angle reading:
 ///
-/// With no fold or hinge feature in the window:
+/// - [kClosedAngleThreshold] or less reads `closed`, with or without a fold
+///   in the window.
+/// - Above it [postureForAngle] decides: `partiallyOpen` below
+///   [kFlatAngleThreshold] and `fullyOpen` from there up. The state of the
+///   engine's fold is ignored, a `postureHalfOpened` included.
 ///
-/// - A device with a hinge sensor follows the angle. [kClosedAngleThreshold]
-///   or less reads `closed` (the cover screen). Above it [postureForAngle]
-///   decides, which covers an open device whose window sits on one side of
-///   the fold.
-/// - A device with a hinge sensor and no angle reading yet reads `unknown`.
+/// With no angle reading:
+///
+/// - A fold listed as `postureHalfOpened` gives `partiallyOpen` and one
+///   listed as `postureFlat` gives `fullyOpen`.
+/// - A fold in any other state, and a window with no fold, read `unknown`.
 ///   The base widgets treat `unknown` as no fold in effect.
-/// - A device with no hinge sensor has no hinge: `unknown`, `isFoldable`
-///   false.
+///
+/// A device with no hinge sensor and no fold in the window has no hinge:
+/// `unknown`, `isFoldable` false.
 ///
 /// `DivisionActivation.always` reports `partiallyOpen` whenever a fold is in
-/// the window.
+/// the window and the angle does not read `closed`.
 ///
 /// ## Regions
 ///
@@ -243,28 +250,27 @@ HingeStatus _posture(
   double? angle,
   FoldDivisionConfig config,
 ) {
-  if (folds.isEmpty) {
-    // No reading says nothing about the hinge. `closed` needs an angle.
-    if (angle == null) return HingeStatus.unknown;
+  final bool always = folds.isNotEmpty &&
+      config.enabled &&
+      config.activation == DivisionActivation.always;
+
+  if (angle != null) {
+    // A shut device shows no fold. One still listed is stale.
     if (angle <= kClosedAngleThreshold) return HingeStatus.closed;
-    return postureForAngle(angle);
+    return always ? HingeStatus.partiallyOpen : postureForAngle(angle);
   }
 
-  if (config.enabled && config.activation == DivisionActivation.always) {
-    return HingeStatus.partiallyOpen;
+  // No reading says nothing about the hinge. `closed` needs an angle.
+  if (folds.isEmpty) return HingeStatus.unknown;
+  if (always) return HingeStatus.partiallyOpen;
+  switch (folds.first.state) {
+    case DisplayFeatureState.postureHalfOpened:
+      return HingeStatus.partiallyOpen;
+    case DisplayFeatureState.postureFlat:
+      return HingeStatus.fullyOpen;
+    case DisplayFeatureState.unknown:
+      return HingeStatus.unknown;
   }
-
-  final DisplayFeatureState state = folds.first.state;
-  if (state == DisplayFeatureState.postureHalfOpened) {
-    return HingeStatus.partiallyOpen;
-  }
-  if (state == DisplayFeatureState.postureFlat) {
-    return HingeStatus.fullyOpen;
-  }
-  final HingeStatus fromAngle = postureForAngle(angle);
-  return fromAngle == HingeStatus.closed
-      ? HingeStatus.partiallyOpen
-      : fromAngle;
 }
 
 /// Whether [fold] runs top to bottom in a window of [viewSize].
@@ -315,25 +321,80 @@ Rect _divisionBounds(Rect fold, Size viewSize, double extent) {
   );
 }
 
+/// The direction the first fold or hinge in [logicalFeatures] runs in, or
+/// null when there is none.
+///
+/// [Axis.vertical] is a fold that runs top to bottom. The window edges the
+/// feature reaches decide, and its shape when they do not.
+Axis? foldAxisOf({
+  required Size windowSize,
+  required Iterable<DisplayFeature> logicalFeatures,
+}) {
+  for (final DisplayFeature feature in logicalFeatures) {
+    if (feature.type == DisplayFeatureType.fold ||
+        feature.type == DisplayFeatureType.hinge) {
+      return _standsUpright(feature.bounds, windowSize)
+          ? Axis.vertical
+          : Axis.horizontal;
+    }
+  }
+  return null;
+}
+
 /// Picks the window of an emulated device that stands for the real one.
 ///
-/// - A fold or hinge in [logicalFeatures] that crosses the window means the
-///   inner display. A fold that runs top to bottom gives
-///   [EmulatedWindowKind.innerLandscape] and one that runs left to right
-///   gives [EmulatedWindowKind.innerPortrait].
-/// - No such fold means the outer display. A window wider than it is tall
-///   gives [EmulatedWindowKind.outerLandscape], any other window
-///   [EmulatedWindowKind.outerPortrait].
+/// With a hinge sensor that has delivered a [hingeAngle], the angle decides
+/// which display it is. The engine's feature list cannot: it can be empty on
+/// an open device and can hold a stale fold on a shut one.
 ///
-/// A fold crosses the window when its centre line lies between two opposite
-/// window edges. A fold on an edge, such as the one beside a split screen
-/// half, splits nothing and counts as no fold.
+/// - [kClosedAngleThreshold] or less: the outer display, even with a fold
+///   listed.
+/// - Above it: the inner display, even with no fold listed. The fold axis
+///   comes from the first of these that answers:
+///   1. A fold or hinge in [logicalFeatures] (see [foldAxisOf]).
+///   2. [rememberedFoldAxis], the axis last seen for a window of this
+///      orientation.
+///   3. The window aspect: wider than tall gives a fold that runs top to
+///      bottom, any other window one that runs left to right.
+///
+/// With no hinge sensor, or no angle reading yet, the feature list decides:
+///
+/// - A fold or hinge that crosses the window means the inner display. It
+///   crosses when its centre line lies between two opposite window edges. A
+///   fold on an edge, such as the one beside a split screen half, splits
+///   nothing and counts as no fold.
+/// - No such fold means the outer display.
+///
+/// A fold that runs top to bottom gives [EmulatedWindowKind.innerLandscape]
+/// and one that runs left to right gives [EmulatedWindowKind.innerPortrait].
+/// The outer display is [EmulatedWindowKind.outerLandscape] for a window
+/// wider than it is tall and [EmulatedWindowKind.outerPortrait] otherwise.
 ///
 /// [windowSize] and the feature bounds are in logical pixels.
 EmulatedWindowKind selectEmulatedWindow({
   required Size windowSize,
   required Iterable<DisplayFeature> logicalFeatures,
+  double? hingeAngle,
+  bool hasHingeSensor = false,
+  Axis? rememberedFoldAxis,
 }) {
+  final bool landscape = windowSize.width > windowSize.height;
+  final EmulatedWindowKind outer = landscape
+      ? EmulatedWindowKind.outerLandscape
+      : EmulatedWindowKind.outerPortrait;
+  EmulatedWindowKind inner(Axis axis) => axis == Axis.vertical
+      ? EmulatedWindowKind.innerLandscape
+      : EmulatedWindowKind.innerPortrait;
+
+  if (hasHingeSensor && hingeAngle != null && !hingeAngle.isNaN) {
+    if (hingeAngle <= kClosedAngleThreshold) return outer;
+    return inner(
+      foldAxisOf(windowSize: windowSize, logicalFeatures: logicalFeatures) ??
+          rememberedFoldAxis ??
+          (landscape ? Axis.vertical : Axis.horizontal),
+    );
+  }
+
   for (final DisplayFeature feature in logicalFeatures) {
     if (feature.type != DisplayFeatureType.fold &&
         feature.type != DisplayFeatureType.hinge) {
@@ -342,15 +403,13 @@ EmulatedWindowKind selectEmulatedWindow({
     final Rect fold = feature.bounds;
     if (_standsUpright(fold, windowSize)) {
       if (fold.center.dx > 0 && fold.center.dx < windowSize.width) {
-        return EmulatedWindowKind.innerLandscape;
+        return inner(Axis.vertical);
       }
     } else if (fold.center.dy > 0 && fold.center.dy < windowSize.height) {
-      return EmulatedWindowKind.innerPortrait;
+      return inner(Axis.horizontal);
     }
   }
-  return windowSize.width > windowSize.height
-      ? EmulatedWindowKind.outerLandscape
-      : EmulatedWindowKind.outerPortrait;
+  return outer;
 }
 
 /// [data] as an app in the emulated window [state] sees it.
@@ -361,31 +420,40 @@ EmulatedWindowKind selectEmulatedWindow({
 ///
 /// - The regions are replaced. A state with a fold gets one `division`,
 ///   `config.divisionExtent` thick, centred on the fold of the state and
-///   running the whole window. It is active while the posture of [data] is
-///   `partiallyOpen`, which follows the real hinge or
-///   `DivisionActivation.always`. Each occlusion of the state becomes an
+///   running the whole window. It is active while the posture is
+///   `partiallyOpen`. Each occlusion of the state becomes an
 ///   active `occlusion` region. Regions of the real window (the real fold,
 ///   the camera cutout) are dropped: their bounds belong to another
 ///   coordinate space and the emulated device does not have them.
 /// - The size classes come from the window size of the state.
 /// - `displayFeatures` is empty, for the scope to fill from its bridge mode.
-/// - Capabilities, posture and hinge angle are kept.
+/// - Capabilities and hinge angle are kept. So is the posture, with one
+///   exception: under `DivisionActivation.always` a state with a fold reads
+///   `partiallyOpen` unless the posture is `closed`. The real window can
+///   lack a fold where the emulated one has it, and [emulateDivision] only
+///   applies `always` to a fold it was given.
 FoldableData emulateDeviceData({
   required FoldableData data,
   required EmulatedDeviceState state,
   required FoldDivisionConfig config,
 }) {
   final Rect? division = state.divisionRect(config.divisionExtent);
+  final HingeStatus status = division != null &&
+          config.enabled &&
+          config.activation == DivisionActivation.always &&
+          data.status != HingeStatus.closed
+      ? HingeStatus.partiallyOpen
+      : data.status;
   return FoldableData(
     capabilities: data.capabilities,
-    status: data.status,
+    status: status,
     angleDegrees: data.angleDegrees,
     regions: List<ReservedRegion>.unmodifiable(<ReservedRegion>[
       if (division != null)
         ReservedRegion(
           kind: ReservedRegionKind.division,
           bounds: division,
-          isActive: data.status == HingeStatus.partiallyOpen,
+          isActive: status == HingeStatus.partiallyOpen,
         ),
       for (final Rect occlusion in state.occlusions)
         ReservedRegion(

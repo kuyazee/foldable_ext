@@ -76,13 +76,15 @@ void main() {
           Foldable.hingeStatusStream.listen(statuses.add);
       await settle();
       await plugin.sendAngle(120.5);
-      showInnerDisplay(DisplayFeatureState.postureFlat);
+      // The engine's list goes flat before the sensor does. The posture
+      // waits for the angle.
+      showInnerDisplay(DisplayFeatureState.postureFlat, moveHinge: false);
       await plugin.sendAngle(180);
       await settle();
       await angleSub.cancel();
       await statusSub.cancel();
 
-      expect(angles, <double>[95, 120.5, 120.5, 180]);
+      expect(angles, <double>[95, 120.5, 180]);
       expect(statuses, <HingeStatus>[
         HingeStatus.partiallyOpen,
         HingeStatus.fullyOpen,
@@ -352,12 +354,16 @@ void main() {
       );
       await settle();
       await plugin.endAngles();
-      showInnerDisplay(DisplayFeatureState.postureFlat);
+      // A change of the window still reaches the listeners.
+      showInnerDisplay(
+        DisplayFeatureState.postureHalfOpened,
+        withCutout: true,
+      );
       await settle();
       await sub.cancel();
 
       expect(done, isFalse);
-      expect(seen.last.status, HingeStatus.fullyOpen);
+      expect(seen.last.regions.last.kind, ReservedRegionKind.occlusion);
     });
 
     test('stops listening to its sources when the last listener leaves',

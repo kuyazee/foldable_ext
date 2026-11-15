@@ -72,30 +72,70 @@ void main() {
       expect(data.isFullyOpen, isTrue);
     });
 
-    test('the feature state wins over the angle', () {
+    test('the angle wins over the feature state', () {
+      FoldableData at(double angle, DisplayFeatureState state) => run(
+            features: <DisplayFeature>[fold(kBookFold, state)],
+            angle: angle,
+          );
+      // The engine can list a fold as flat while the hinge stands at 90.
+      expect(
+        at(90, DisplayFeatureState.postureFlat).status,
+        HingeStatus.partiallyOpen,
+      );
+      expect(
+        at(90, DisplayFeatureState.postureFlat).regions.single.isActive,
+        isTrue,
+      );
+      expect(
+        at(159.9, DisplayFeatureState.postureFlat).status,
+        HingeStatus.partiallyOpen,
+      );
+      // A half opened state does not hold against a flat angle.
+      expect(
+        at(160, DisplayFeatureState.postureHalfOpened).status,
+        HingeStatus.fullyOpen,
+      );
+      expect(
+        at(180, DisplayFeatureState.postureHalfOpened).regions.single.isActive,
+        isFalse,
+      );
+      expect(
+        at(20.1, DisplayFeatureState.unknown).status,
+        HingeStatus.partiallyOpen,
+      );
+    });
+
+    test('a shut angle reads closed even with a fold still listed', () {
+      for (final DisplayFeatureState state in DisplayFeatureState.values) {
+        final FoldableData data = run(
+          features: <DisplayFeature>[fold(kBookFold, state)],
+          angle: 20,
+        );
+        expect(data.status, HingeStatus.closed, reason: state.name);
+        expect(data.regions.single.isActive, isFalse, reason: state.name);
+      }
+    });
+
+    test('DivisionActivation.always does not open a shut hinge', () {
       final FoldableData data = run(
         features: <DisplayFeature>[
           fold(kBookFold, DisplayFeatureState.postureFlat),
         ],
-        angle: 100,
+        angle: 10,
+        config: kOn.copyWith(activation: DivisionActivation.always),
       );
-      expect(data.status, HingeStatus.fullyOpen);
+      expect(data.status, HingeStatus.closed);
     });
 
-    test('an unknown feature state falls back to the angle', () {
-      FoldableData at(double? angle) => run(
-            features: <DisplayFeature>[
-              fold(kBookFold, DisplayFeatureState.unknown),
-            ],
-            angle: angle,
-          );
-      expect(at(90).status, HingeStatus.partiallyOpen);
-      expect(at(159.9).status, HingeStatus.partiallyOpen);
-      expect(at(160).status, HingeStatus.fullyOpen);
-      expect(at(180).status, HingeStatus.fullyOpen);
-      // A fold in the window rules out a closed device.
-      expect(at(5).status, HingeStatus.partiallyOpen);
-      expect(at(null).status, HingeStatus.unknown);
+    test('with no angle the feature state decides', () {
+      HingeStatus of(DisplayFeatureState state) =>
+          run(features: <DisplayFeature>[fold(kBookFold, state)]).status;
+      expect(
+        of(DisplayFeatureState.postureHalfOpened),
+        HingeStatus.partiallyOpen,
+      );
+      expect(of(DisplayFeatureState.postureFlat), HingeStatus.fullyOpen);
+      expect(of(DisplayFeatureState.unknown), HingeStatus.unknown);
     });
 
     test('a hinge sensor with no fold in the window is the cover screen', () {

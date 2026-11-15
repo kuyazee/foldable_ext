@@ -41,10 +41,20 @@ TestFlutterView get testView =>
     TestWidgetsFlutterBinding.instance.platformDispatcher.implicitView!;
 
 /// Makes the test view an open Fold showing the inner display.
+///
+/// The hinge sensor of the installed [FakeHingePlugin] follows: 95 degrees
+/// for a half opened fold and 180 for a flat one. Pass [moveHinge] false to
+/// leave the angle alone, for a list that disagrees with the sensor.
 void showInnerDisplay(
   DisplayFeatureState state, {
   bool withCutout = false,
+  bool moveHinge = true,
 }) {
+  if (moveHinge) {
+    FakeHingePlugin.current?.moveTo(
+      state == DisplayFeatureState.postureFlat ? 180 : 95,
+    );
+  }
   testView
     ..devicePixelRatio = kFoldPixelRatio
     ..physicalSize = kFoldPhysicalSize
@@ -54,8 +64,10 @@ void showInnerDisplay(
     ];
 }
 
-/// Makes the test view a closed Fold showing the cover display.
+/// Makes the test view a closed Fold showing the cover display. The hinge
+/// sensor of the installed [FakeHingePlugin] goes to 0 degrees.
 void showCoverDisplay() {
+  FakeHingePlugin.current?.moveTo(0);
   testView
     ..devicePixelRatio = kFoldPixelRatio
     ..physicalSize = kCoverPhysicalSize
@@ -65,6 +77,9 @@ void showCoverDisplay() {
 /// A stand-in for the Kotlin side of the plugin.
 class FakeHingePlugin {
   FakeHingePlugin({this.hasHingeSensor = true, this.angle});
+
+  /// The plugin that is installed, or null.
+  static FakeHingePlugin? current;
 
   bool hasHingeSensor;
   double? angle;
@@ -83,7 +98,15 @@ class FakeHingePlugin {
   TestDefaultBinaryMessenger get _messenger =>
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
+  /// Turns the hinge to [degrees] when the device has a sensor that has
+  /// given a reading. A listener of the angle stream hears of it.
+  void moveTo(double degrees) {
+    if (!hasHingeSensor || angle == null || angle == degrees) return;
+    sendAngle(degrees);
+  }
+
   void install() {
+    current = this;
     _messenger.setMockMethodCallHandler(_methods, (MethodCall call) async {
       if (call.method != 'getHingeInfo') return null;
       infoCalls++;
@@ -100,6 +123,7 @@ class FakeHingePlugin {
   }
 
   void uninstall() {
+    if (identical(current, this)) current = null;
     _messenger.setMockMethodCallHandler(_methods, null);
     _messenger.setMockMethodCallHandler(_events, null);
   }

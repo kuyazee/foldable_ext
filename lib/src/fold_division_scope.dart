@@ -38,7 +38,7 @@ import 'fold_division_overlay.dart';
 ///
 /// On an Android foldable, with division mode on and a device set, the
 /// subtree is rendered as that device. `selectEmulatedWindow` picks the
-/// window of the device from the real window and its fold.
+/// window of the device from the hinge angle, the real window and its fold.
 ///
 /// With `FoldDivisionConfig.matchWindowSize` on:
 ///
@@ -184,6 +184,12 @@ class _DeviceEmulator extends StatefulWidget {
 class _DeviceEmulatorState extends State<_DeviceEmulator> {
   List<DisplayFeature> _features = const <DisplayFeature>[];
 
+  /// The fold axis the engine last listed, per window orientation (true for
+  /// a window wider than it is tall). The engine can drop the fold from its
+  /// list while the device stays open, and the axis is still needed then.
+  /// It is kept for the life of this State.
+  final Map<bool, Axis> _foldAxes = <bool, Axis>{};
+
   /// MediaQuery compares its display feature list by identity. Hands back
   /// the old instance while the contents are the same.
   List<DisplayFeature> _stable(List<DisplayFeature> features) {
@@ -210,9 +216,18 @@ class _DeviceEmulatorState extends State<_DeviceEmulator> {
     EmulatedDeviceState? state;
     EmulatedWindowPlacement? placement;
     if (device != null) {
+      final bool landscape = ambient.size.width > ambient.size.height;
+      final Axis? listed = foldAxisOf(
+        windowSize: ambient.size,
+        logicalFeatures: ambient.displayFeatures,
+      );
+      if (listed != null) _foldAxes[landscape] = listed;
       kind = selectEmulatedWindow(
         windowSize: ambient.size,
         logicalFeatures: ambient.displayFeatures,
+        hingeAngle: data.angleDegrees,
+        hasHingeSensor: data.capabilities.hingeApiPresent,
+        rememberedFoldAxis: _foldAxes[landscape],
       );
       state = device.stateFor(kind);
       if (config.matchWindowSize) {

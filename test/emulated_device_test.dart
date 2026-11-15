@@ -220,6 +220,165 @@ void main() {
     });
   });
 
+  group('selectEmulatedWindow with a hinge angle', () {
+    const Size upright = Size(673, 841);
+    const Size sideways = Size(841, 673);
+    final DisplayFeature bookFold = fold(
+      const Rect.fromLTRB(336.8, 0, 337.1, 841),
+      hinge: true,
+    );
+
+    EmulatedWindowKind select(
+      Size size, {
+      required double? angle,
+      bool sensor = true,
+      List<DisplayFeature> features = const <DisplayFeature>[],
+      Axis? remembered,
+    }) =>
+        selectEmulatedWindow(
+          windowSize: size,
+          logicalFeatures: features,
+          hingeAngle: angle,
+          hasHingeSensor: sensor,
+          rememberedFoldAxis: remembered,
+        );
+
+    test('an open hinge with no fold listed is still the inner display', () {
+      // What a foldable emulator reports at 180 degrees: an empty list.
+      expect(
+        select(upright, angle: 180, remembered: Axis.vertical),
+        EmulatedWindowKind.innerLandscape,
+      );
+      expect(select(upright, angle: 20.1), EmulatedWindowKind.innerPortrait);
+    });
+
+    test('a listed fold gives the axis and wins over the remembered one', () {
+      expect(
+        select(
+          upright,
+          angle: 90,
+          features: <DisplayFeature>[bookFold],
+          remembered: Axis.horizontal,
+        ),
+        EmulatedWindowKind.innerLandscape,
+      );
+      expect(
+        select(
+          sideways,
+          angle: 90,
+          features: <DisplayFeature>[
+            fold(const Rect.fromLTRB(0, 336.5, 841, 336.5)),
+          ],
+          remembered: Axis.vertical,
+        ),
+        EmulatedWindowKind.innerPortrait,
+      );
+    });
+
+    test('with no fold listed the remembered axis wins over the aspect', () {
+      expect(
+        select(upright, angle: 180, remembered: Axis.vertical),
+        EmulatedWindowKind.innerLandscape,
+      );
+      expect(
+        select(sideways, angle: 180, remembered: Axis.horizontal),
+        EmulatedWindowKind.innerPortrait,
+      );
+    });
+
+    test('with nothing listed or remembered the window aspect decides', () {
+      expect(select(sideways, angle: 180), EmulatedWindowKind.innerLandscape);
+      expect(select(upright, angle: 180), EmulatedWindowKind.innerPortrait);
+      expect(
+        select(const Size(500, 500), angle: 180),
+        EmulatedWindowKind.innerPortrait,
+      );
+    });
+
+    test('a shut hinge is the outer display even with a stale fold listed', () {
+      expect(
+        select(
+          upright,
+          angle: 20,
+          features: <DisplayFeature>[bookFold],
+          remembered: Axis.vertical,
+        ),
+        EmulatedWindowKind.outerPortrait,
+      );
+      expect(
+        select(sideways, angle: 0, features: <DisplayFeature>[bookFold]),
+        EmulatedWindowKind.outerLandscape,
+      );
+    });
+
+    test('a sensor with no reading yet falls back to the feature list', () {
+      expect(
+        select(upright, angle: null, remembered: Axis.vertical),
+        EmulatedWindowKind.outerPortrait,
+      );
+      expect(
+        select(upright, angle: null, features: <DisplayFeature>[bookFold]),
+        EmulatedWindowKind.innerLandscape,
+      );
+    });
+
+    test('with no hinge sensor the feature list decides, whatever the angle',
+        () {
+      expect(
+        select(upright, angle: 180, sensor: false, remembered: Axis.vertical),
+        EmulatedWindowKind.outerPortrait,
+      );
+      expect(
+        select(
+          upright,
+          angle: 0,
+          sensor: false,
+          features: <DisplayFeature>[bookFold],
+        ),
+        EmulatedWindowKind.innerLandscape,
+      );
+    });
+  });
+
+  group('foldAxisOf', () {
+    test('reads the axis of the first fold or hinge', () {
+      expect(
+        foldAxisOf(
+          windowSize: const Size(673, 841),
+          logicalFeatures: <DisplayFeature>[
+            fold(const Rect.fromLTRB(336.5, 0, 336.5, 841)),
+          ],
+        ),
+        Axis.vertical,
+      );
+      expect(
+        foldAxisOf(
+          windowSize: const Size(841, 673),
+          logicalFeatures: <DisplayFeature>[
+            fold(const Rect.fromLTRB(0, 336.5, 841, 336.5)),
+          ],
+        ),
+        Axis.horizontal,
+      );
+    });
+
+    test('is null with no fold, a cutout included', () {
+      expect(
+        foldAxisOf(
+          windowSize: const Size(673, 841),
+          logicalFeatures: const <DisplayFeature>[
+            DisplayFeature(
+              bounds: Rect.fromLTWH(600, 10, 30, 30),
+              type: DisplayFeatureType.cutout,
+              state: DisplayFeatureState.unknown,
+            ),
+          ],
+        ),
+        isNull,
+      );
+    });
+  });
+
   group('emulateDeviceData', () {
     const FoldDivisionConfig config = FoldDivisionConfig(enabled: true);
 
@@ -276,6 +435,30 @@ void main() {
       );
       expect(data.status, HingeStatus.partiallyOpen);
       expect(data.regions.single.isActive, isTrue);
+    });
+
+    test('DivisionActivation.always covers an open window with no fold listed',
+        () {
+      final FoldDivisionConfig always = config.copyWith(
+        activation: DivisionActivation.always,
+      );
+      FoldableData at(double angle) => emulateDeviceData(
+            data: emulateDivision(
+              logicalFeatures: const <DisplayFeature>[],
+              viewSize: const Size(673, 841),
+              hingeAngle: angle,
+              hasHingeSensor: true,
+              config: always,
+            ),
+            state: EmulatedDevice.iphoneDuo.innerLandscape,
+            config: always,
+          );
+      // The real window has no fold for `always` to act on. The emulated
+      // one has.
+      expect(at(180).status, HingeStatus.partiallyOpen);
+      expect(at(180).regions.single.isActive, isTrue);
+      expect(at(10).status, HingeStatus.closed);
+      expect(at(10).regions.single.isActive, isFalse);
     });
 
     test('the outer display has no division and publishes its occlusion', () {

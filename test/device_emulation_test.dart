@@ -30,6 +30,9 @@ void showBars() {
 /// Makes the test view the inner display turned on its side: the fold runs
 /// left to right.
 void showInnerDisplayRotated(DisplayFeatureState state) {
+  FakeHingePlugin.current?.moveTo(
+    state == DisplayFeatureState.postureFlat ? 180 : 95,
+  );
   testView
     ..devicePixelRatio = kFoldPixelRatio
     ..physicalSize = kFoldPhysicalSize.flipped
@@ -366,6 +369,114 @@ void main() {
       expect(seen.media.size, const Size(1000, 700));
       expect(seen.media.padding, const EdgeInsets.only(left: 10, right: 90));
       expect(seen.division!.bounds, const Rect.fromLTRB(485, 0, 515, 700));
+
+      await unmount(tester);
+    });
+  });
+
+  group('engine list that disagrees with the hinge sensor', () {
+    testWidgets('a hinge at 90 with the fold listed as flat is partly open', (
+      WidgetTester tester,
+    ) async {
+      // What a foldable emulator reports at 90 degrees.
+      plugin.angle = 90;
+      testView
+        ..devicePixelRatio = kFoldPixelRatio
+        ..physicalSize = kFoldPhysicalSize
+        ..displayFeatures = const <DisplayFeature>[
+          DisplayFeature(
+            bounds: Rect.fromLTRB(336.8, 0, 337.1, 841.1),
+            type: DisplayFeatureType.hinge,
+            state: DisplayFeatureState.postureFlat,
+          ),
+        ];
+      await pumpScope(tester, mode: DisplayFeatureBridgeMode.full);
+
+      expect(seen.data.status, HingeStatus.partiallyOpen);
+      expect(seen.emulation!.kind, EmulatedWindowKind.innerLandscape);
+      expect(seen.division!.isActive, isTrue);
+      expect(seen.keepClear, const Rect.fromLTRB(443.5, 0, 507.5, 669));
+      expect(seen.media.displayFeatures.single.bounds.center.dx, 475.5);
+
+      await unmount(tester);
+    });
+
+    testWidgets('a flat hinge with an empty list keeps the inner display', (
+      WidgetTester tester,
+    ) async {
+      showInnerDisplay(DisplayFeatureState.postureHalfOpened);
+      await pumpScope(tester);
+      expect(seen.emulation!.kind, EmulatedWindowKind.innerLandscape);
+
+      // What a foldable emulator reports at 180 degrees: no fold at all.
+      testView.displayFeatures = const <DisplayFeature>[];
+      await plugin.sendAngle(180.0);
+      await tester.pumpAndSettle();
+
+      // The window is taller than wide. The axis seen before decides.
+      expect(seen.emulation!.kind, EmulatedWindowKind.innerLandscape);
+      expect(seen.media.size, const Size(951, 669));
+      expect(seen.data.status, HingeStatus.fullyOpen);
+      expect(seen.division!.bounds, const Rect.fromLTRB(455.5, 0, 495.5, 669));
+      expect(seen.division!.isActive, isFalse);
+
+      await unmount(tester);
+    });
+
+    testWidgets('an open hinge with no fold ever listed follows the aspect', (
+      WidgetTester tester,
+    ) async {
+      plugin.angle = 180;
+      testView
+        ..devicePixelRatio = kFoldPixelRatio
+        ..physicalSize = kFoldPhysicalSize
+        ..displayFeatures = const <DisplayFeature>[];
+      await pumpScope(tester);
+      expect(seen.emulation!.kind, EmulatedWindowKind.innerPortrait);
+      expect(seen.media.size, const Size(669, 951));
+
+      testView.physicalSize = kFoldPhysicalSize.flipped;
+      await tester.pumpAndSettle();
+      expect(seen.emulation!.kind, EmulatedWindowKind.innerLandscape);
+      expect(seen.media.size, const Size(951, 669));
+
+      await unmount(tester);
+    });
+
+    testWidgets('a shut hinge with a stale fold listed is the outer display', (
+      WidgetTester tester,
+    ) async {
+      showInnerDisplay(DisplayFeatureState.postureHalfOpened);
+      await pumpScope(tester);
+      expect(seen.media.size, const Size(951, 669));
+
+      await plugin.sendAngle(10.0);
+      await tester.pumpAndSettle();
+
+      expect(seen.emulation!.kind, EmulatedWindowKind.outerPortrait);
+      expect(seen.media.size, const Size(466, 678));
+      expect(seen.data.status, HingeStatus.closed);
+      expect(seen.division, isNull);
+
+      await unmount(tester);
+    });
+
+    testWidgets('DivisionActivation.always holds with an empty list', (
+      WidgetTester tester,
+    ) async {
+      FoldDivision.config.value = const FoldDivisionConfig(
+        enabled: true,
+        activation: DivisionActivation.always,
+      );
+      plugin.angle = 180;
+      testView
+        ..devicePixelRatio = kFoldPixelRatio
+        ..physicalSize = kFoldPhysicalSize.flipped
+        ..displayFeatures = const <DisplayFeature>[];
+      await pumpScope(tester);
+
+      expect(seen.division!.isActive, isTrue);
+      expect(seen.keepClear, const Rect.fromLTRB(443.5, 0, 507.5, 669));
 
       await unmount(tester);
     });
