@@ -26,6 +26,7 @@ export 'package:foldable/foldable.dart';
 
 export 'src/division_emulator.dart';
 export 'src/emulated_device.dart';
+export 'src/emulated_media_query.dart';
 export 'src/emulated_window.dart';
 export 'src/fold_division_android.dart';
 export 'src/fold_division_api.dart';

@@ -106,6 +106,22 @@ coordinates. `RenderBox.localToGlobal` and pointer positions still use the real 
 compare a widget against `keepClearRectOf`, get its bounds from
 `FoldDivision.windowRectOf(context)`.
 
+## Sizes outside the scope
+
+`MediaQuery.of` under the scope already gives the emulated window. Code above the scope, or code
+that reads the view, still sees the real screen. Swap the call and it gets the emulated window:
+
+| Instead of | Use |
+|---|---|
+| `MediaQuery.of(context)` | `EmulatedMediaQuery.of(context)` |
+| `MediaQuery.sizeOf(context)`, `paddingOf` and the rest | `EmulatedMediaQuery.sizeOf(context)`, `paddingOf` and the rest |
+| `MediaQueryData.fromView(View.of(context))` | `EmulatedMediaQuery.windowOf(context)` |
+| `MediaQueryData.fromView(view)` | `EmulatedMediaQuery.fromView(view)` |
+
+`windowOf` skips local `MediaQuery` changes, like the one a `Scaffold` body gets, so use it when
+you need the window edge. With no device emulated, every call answers the same as the one it
+replaces.
+
 ## Platforms
 
 - iOS passes straight through to `foldable`. The emulation settings do nothing there because the

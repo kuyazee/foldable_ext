@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show DisplayFeature, DisplayFeatureType;
+import 'dart:ui' show DisplayFeature, DisplayFeatureType, FlutterView;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -7,6 +7,7 @@ import 'package:foldable/foldable.dart';
 
 import 'division_emulator.dart';
 import 'emulated_device.dart';
+import 'emulated_media_query.dart';
 import 'emulated_window.dart';
 import 'fold_division_android.dart';
 import 'fold_division_api.dart';
@@ -156,10 +157,10 @@ class FoldDivisionScope extends StatelessWidget {
 
 /// Gives the subtree the window of the emulated device.
 ///
-/// It always builds the same chain: the window box, a `MediaQuery`, a
-/// `DuoMediaQuery` and a [DeviceEmulationScope]. With nothing to emulate
-/// each of them passes on what it got, so a config change, a fold or an
-/// unfold never rebuilds the State below from scratch.
+/// It always builds the same chain: the window box, a `MediaQuery`, an
+/// [EmulatedWindowScope], a `DuoMediaQuery` and a [DeviceEmulationScope].
+/// With nothing to emulate each of them passes on what it got, so a config
+/// change, a fold or an unfold never rebuilds the State below from scratch.
 class _DeviceEmulator extends StatefulWidget {
   const _DeviceEmulator({
     required this.mode,
@@ -195,6 +196,27 @@ class _DeviceEmulatorState extends State<_DeviceEmulator> {
   List<DisplayFeature> _stable(List<DisplayFeature> features) {
     if (!listEquals(features, _features)) _features = features;
     return _features;
+  }
+
+  /// The view whose emulated window this State last recorded for
+  /// `EmulatedMediaQuery.fromView`.
+  FlutterView? _recordedView;
+
+  void _record(FlutterView? view, MediaQueryData? window) {
+    final FlutterView? old = _recordedView;
+    if (old != null && (old != view || window == null)) {
+      EmulatedWindowScope.recordWindow(old, null);
+    }
+    _recordedView = window == null ? null : view;
+    if (view != null && window != null) {
+      EmulatedWindowScope.recordWindow(view, window);
+    }
+  }
+
+  @override
+  void dispose() {
+    _record(null, null);
+    super.dispose();
   }
 
   @override
@@ -329,6 +351,8 @@ class _DeviceEmulatorState extends State<_DeviceEmulator> {
       shown = realData;
     }
 
+    _record(View.maybeOf(context), emulation == null ? null : media);
+
     return _EmulatedWindow(
       windowSize: emulation != null && emulation.matchesWindowSize
           ? emulation.windowSize
@@ -336,11 +360,14 @@ class _DeviceEmulatorState extends State<_DeviceEmulator> {
       padding: ambient.viewPadding,
       child: MediaQuery(
         data: media,
-        child: DuoMediaQuery(
-          data: shown,
-          child: DeviceEmulationScope(
-            emulation: emulation,
-            child: widget.child,
+        child: EmulatedWindowScope(
+          window: media,
+          child: DuoMediaQuery(
+            data: shown,
+            child: DeviceEmulationScope(
+              emulation: emulation,
+              child: widget.child,
+            ),
           ),
         ),
       ),

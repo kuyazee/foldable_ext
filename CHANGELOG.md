@@ -1,3 +1,9 @@
+## Unreleased
+
+- `EmulatedMediaQuery`: `MediaQuery` lookups that give the emulated window above the scope and
+  in code that reads the view. `windowOf` and `fromView` stand in for
+  `MediaQueryData.fromView`.
+
 ## 0.2.1
 
 - Shorter README that covers install, usage, settings and known gaps.
