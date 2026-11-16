@@ -1,3 +1,8 @@
+## 0.2.1
+
+- Shorter README that covers install, usage, settings and known gaps.
+- Releases publish to pub.dev from GitHub Actions when a version tag is pushed.
+
 ## 0.2.0
 
 Device emulation: with division mode on, an app under `FoldDivisionScope` on an Android foldable

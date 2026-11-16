@@ -40,15 +40,30 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match pubspec.yaml version $version"
             exit 1
           fi
+          echo "version=$version" >> "$GITHUB_ENV"
+
+      # A version that is already on pub.dev cannot be uploaded again, so a
+      # tag for one ends the job here instead of failing at the upload.
+      - name: Skip a version that is already published
+        run: |
+          if curl -fsS https://pub.dev/api/packages/foldable_ext \
+              | grep -q "\"version\":\"$version\""; then
+            echo "foldable_ext $version is already on pub.dev"
+            echo "skip=true" >> "$GITHUB_ENV"
+          fi
 
       - name: Get packages
+        if: env.skip != 'true'
         run: flutter pub get
 
       - name: Analyze
+        if: env.skip != 'true'
         run: flutter analyze --no-fatal-infos
 
       - name: Test
+        if: env.skip != 'true'
         run: flutter test
 
       - name: Publish
+        if: env.skip != 'true'
         run: flutter pub publish --force
