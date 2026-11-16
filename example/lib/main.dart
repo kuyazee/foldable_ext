@@ -79,7 +79,7 @@ class _HomePageState extends State<HomePage> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('foldable_ext'),
-        backgroundColor: colors.surface.withValues(alpha: 0.6),
+        backgroundColor: colors.surface.withAlpha(153),
         scrolledUnderElevation: 0,
         flexibleSpace: ClipRect(
           child: BackdropFilter(
