@@ -10,11 +10,17 @@ The [`foldable`](https://pub.dev/packages/foldable) package gives Flutter the iP
 but only on iOS. This package adds Android support for the same API, so a Galaxy Z Fold or a
 foldable emulator reports its fold the way an iPhone Duo would.
 
+Here's [a quick demo on Threads](https://www.threads.com/share/BAbmPtq9Ul).
+
 In debug builds it also:
 
 - draws your app at iPhone Duo size, with the Duo's safe area and fold
 - reports the fold as a 40 px division, the width `foldable` measured on the Duo simulator
 - paints the division red and the keep-clear margins amber, so you can see what's in the way
+
+This won't make your app Duo-ready by itself. It shows you how the app looks at Duo size and
+where the fold lands. You'll still need to tweak a few layouts here and there before it really
+looks at home on an iPhone Duo.
 
 ## Install
 
